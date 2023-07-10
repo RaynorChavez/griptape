@@ -1,6 +1,7 @@
 from typing import Optional
 from griptape import utils
 from griptape.drivers import BaseVectorStoreDriver
+from griptape.artifacts import TextArtifact
 import marqo
 from attr import define, field
 
@@ -18,18 +19,50 @@ class MarqoVectorStoreDriver(BaseVectorStoreDriver):
     def set_index(self, index):
         self.index = index
 
+    #insert namespace as a nontensor field not as a tensor field
+    #if namespace is not None we can filter
+
     def upsert_text(
+        self,
+        string: str,
+        vector_id: Optional[str] = None,
+        namespace: Optional[str] = None,
+        meta: Optional[dict] = None,
+        **kwargs
+    ) -> str:
+        doc = {
+            "_id": vector_id, 
+            "Description": string,  # Description will be treated as tensor field
+        }
+
+        # Non-tensor fields
+        if meta:
+            doc["meta"] = str(meta)
+        if namespace:
+            doc['namespace'] = namespace
+
+        return self.mq.index(self.index).add_documents([doc], non_tensor_fields=["meta", "namespace"])
+
+        
+    def upsert_text_artifact(
             self,
-            string: str,
-            vector_id: Optional[str] = None,
+            artifact: TextArtifact,
             namespace: Optional[str] = None,
             meta: Optional[dict] = None,
             **kwargs
     ) -> str:
-        doc = {"_id": vector_id, "text": string} # implement the Title: ,Description: format?
-        if namespace is not None:
-            doc['namespace'] = namespace
-        return self.mq.index(self.index).add_documents([doc])
+        if not meta:
+            meta = {}
+
+        meta["artifact"] = artifact.to_json()
+
+        return self.upsert_text(
+            string=artifact.value,
+            vector_id=artifact.id,
+            namespace=namespace,
+            meta=meta,
+            **kwargs
+        )
 
 
     def load_entry(self, vector_id: str, namespace: Optional[str] = None) -> Optional[BaseVectorStoreDriver.Entry]:
@@ -47,20 +80,29 @@ class MarqoVectorStoreDriver(BaseVectorStoreDriver):
 
     def load_entries(self, namespace: Optional[str] = None) -> list[BaseVectorStoreDriver.Entry]:
 
-        results = self.mq.index(self.index).get_documents(
-            "",
-            limit=10000
-        )
+        filter_string = f"namespace:{namespace}" if namespace else None
+        results = self.mq.index(self.index).search("", limit=10000, filter_string=filter_string)
 
-        return [
-            BaseVectorStoreDriver.Entry(
-                id=r["_id"],
-                vector=r["values"],
-                meta=r["metadata"],
-                namespace=results["namespace"]
-            )
-            for r in results["matches"]
-        ]
+        # get all _id's from search results
+        ids = [r["_id"] for r in results["hits"]]
+
+        # get documents corresponding to the ids
+        documents = self.mq.index(self.index).get_documents(document_ids=ids,expose_facets=True)
+
+        # for each document, if it's found, create an Entry object
+        entries = []
+        for doc in documents['results']:
+            if doc['_found']:
+                entries.append(
+                    BaseVectorStoreDriver.Entry(
+                        id=doc["_id"],
+                        vector=doc["_tensor_facets"][0]["_embedding"],
+                        meta={k: v for k, v in doc.items() if k not in ["_id", "_tensor_facets", "_found"]},
+                    )
+                )
+
+        return entries
+
 
     def query(
             self,
@@ -92,9 +134,65 @@ class MarqoVectorStoreDriver(BaseVectorStoreDriver):
             for r in results["hits"]
         ]
 
+    def load_entries(self, namespace: Optional[str] = None) -> list[BaseVectorStoreDriver.Entry]:
+
+        filter_string = f"namespace:{namespace}" if namespace else None
+        results = self.mq.index(self.index).search("", limit=10000, filter_string=filter_string)
+
+        # get all _id's from search results
+        ids = [r["_id"] for r in results["hits"]]
+
+        # get documents corresponding to the ids
+        documents = self.mq.index(self.index).get_documents(document_ids=ids,expose_facets=True)
+
+        # for each document, if it's found, create an Entry object
+        entries = []
+        for doc in documents['results']:
+            if doc['_found']:
+                entries.append(
+                    BaseVectorStoreDriver.Entry(
+                        id=doc["_id"],
+                        vector=doc["_tensor_facets"][0]["_embedding"],
+                        meta={k: v for k, v in doc.items() if k not in ["_id", "_tensor_facets", "_found"]},
+                        namespace=doc.get("namespace"),
+                    )
+                )
+
+        return entries
+    
+
+    def query(
+            self,
+            query: str,
+            count: Optional[int] = None,
+            namespace: Optional[str] = None,
+            include_vectors: bool = False,
+            include_metadata=True,
+            **kwargs
+    ) -> list[BaseVectorStoreDriver.QueryResult]:
+
+        params = {
+            "limit": count if count else BaseVectorStoreDriver.DEFAULT_QUERY_COUNT,
+            "attributes_to_retrieve": ["*"] if include_metadata else ["_id"],
+            "filter_string": f"namespace:{namespace}" if namespace else None
+        } | kwargs
+
+        results = self.mq.index(self.index).search(query, **params)
+
+        if include_vectors:
+            results = self.mq.index(self.index).get_documents(list(map(lambda x: x["_id"], results)))
+
+        return [
+            BaseVectorStoreDriver.QueryResult(
+                vector=None,  # update this line depending on how you access the vector
+                score=r["_score"],
+                meta={k: v for k, v in r.items() if k not in ["_score"]},
+            )
+            for r in results["hits"]
+        ]
+
     def create_index(self, name: str, **kwargs) -> None:
         result = self.mq.create_index(name, settings_dict=kwargs)
-        #print(result)
         return result
 
     def upsert_vector(

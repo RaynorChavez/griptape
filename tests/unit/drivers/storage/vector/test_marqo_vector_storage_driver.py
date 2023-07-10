@@ -2,6 +2,8 @@ import pytest
 from griptape.artifacts import TextArtifact
 from griptape.drivers import MarqoVectorStoreDriver
 from tests.mocks.mock_embedding_driver import MockEmbeddingDriver
+from griptape.artifacts import TextArtifact
+
 
 class TestMarqoVectorStorageDriver:
 
@@ -106,6 +108,43 @@ class TestMarqoVectorStorageDriver:
         mock_marqo.index().add_documents.assert_called()
         assert result['items'][0]['_id'] == "5aed93eb-3878-4f12-bc92-0fda01c7d23d"
 
+    def test_upsert_text_artifact(self, driver, mock_marqo):
+        # Arrange
+        text = TextArtifact(id="a44b04ff052e4109b3c6fda0f3f3e997", value="racoons")
+        mock_marqo.index().add_documents.return_value = {
+            "errors": False,
+            "items": [
+                {
+                    "_id": text.id,
+                    "result": "created",
+                    "status": 201
+                }
+            ],
+            "processingTimeMs": 6,
+            "index_name": "my-first-index"
+        }
+
+        # Act
+        result = driver.upsert_text_artifact(text)
+
+        # Check that the return value is as expected
+        expected_return_value = {
+            "errors": False,
+            "items": [
+                {
+                    "_id": text.id,
+                    "result": "created",
+                    "status": 201
+                }
+            ],
+            "processingTimeMs": 6,
+            "index_name": "my-first-index"
+        }
+        print(result, type(result))
+        assert result['items'][0]["_id"] == expected_return_value["items"][0]["_id"]
+
+
+
     def test_search(self, driver, mock_marqo):
         results = driver.query("Test query")
         mock_marqo.index().search.assert_called()
@@ -116,7 +155,7 @@ class TestMarqoVectorStorageDriver:
         assert results[0].meta["Description"] == "Test description"
 
 
-    def test_get_document(self, driver, mock_marqo):
+    def test_laod_entry(self, driver, mock_marqo):
         # Mock 'get_document' method to return a dictionary
         entry = driver.load_entry("article_152")
         mock_marqo.index().get_document.assert_called_once_with(document_id="article_152", expose_facets=True)
@@ -126,3 +165,44 @@ class TestMarqoVectorStorageDriver:
         assert entry.vector == [-0.10393160581588745,
                                 0.0465407557785511,
                                 -0.01760256476700306]  # The vector values should match the "_embedding" values of title in mock response
+
+    def test_load_entries(self, driver, mock_marqo):
+        # Arrange
+        fake_search_response = {
+            "hits": [
+                {
+                    "_id": "5aed93eb-3878-4f12-bc92-0fda01c7d23d",
+                }
+            ],
+            "limit": 10,
+            "offset": 0,
+            "processingTimeMs": 49,
+            "query": "", 
+        }
+
+        fake_get_documents_response = {
+            'results': [
+                {
+                    'Title': 'Test Title',
+                    'Description': 'Test description',
+                    '_found': True,
+                    '_id': '5aed93eb-3878-4f12-bc92-0fda01c7d23d',
+                    '_tensor_facets': [{'_embedding': [0.1, 0.2, 0.3]}],
+                }
+            ]
+        }
+
+        mock_marqo.index().search.return_value = fake_search_response
+        mock_marqo.index().get_documents.return_value = fake_get_documents_response
+
+        # Act
+        entries = driver.load_entries()
+
+        # Assert
+        assert len(entries) == 1
+        mock_marqo.index().search.assert_called_once_with("", limit=10000)
+        mock_marqo.index().get_documents.assert_called_once_with(document_ids=["5aed93eb-3878-4f12-bc92-0fda01c7d23d"])
+        assert entries[0].id == "5aed93eb-3878-4f12-bc92-0fda01c7d23d"
+        assert entries[0].vector == [0.1, 0.2, 0.3]
+        assert entries[0].meta["Title"] == "Test Title"
+        assert entries[0].meta["Description"] == "Test description"
