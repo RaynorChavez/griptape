@@ -94,68 +94,11 @@ class MarqoVectorStoreDriver(BaseVectorStoreDriver):
                         id=doc["_id"],
                         vector=doc["_tensor_facets"][0]["_embedding"],
                         meta={k: v for k, v in doc.items() if k not in ["_id", "_tensor_facets", "_found"]},
-                    )
-                )
-
-        return entries
-
-
-    def query(
-            self,
-            query: str,
-            count: Optional[int] = None,
-            namespace: Optional[str] = None,
-            include_vectors: bool = False,
-            include_metadata=True,
-            **kwargs
-    ) -> list[BaseVectorStoreDriver.QueryResult]:
-
-        params = {
-            "limit": count if count else BaseVectorStoreDriver.DEFAULT_QUERY_COUNT,
-            "attributes_to_retrieve": ["*"] if include_metadata else ["_id"]
-        } | kwargs
-
-        results = self.mq.index(self.index).search(query, **params)
-
-        if include_vectors:
-            results = self.mq.index(self.index).get_documents(list(map(lambda x: x["_id"], results)))
-
-        return [
-            BaseVectorStoreDriver.QueryResult(
-                vector=None,  # update this line depending on how you access the vector
-                score=r["_score"],
-                meta={k: v for k, v in r.items() if k not in ["_score"]},
-                #id=r["_id"], how should this work?
-            )
-            for r in results["hits"]
-        ]
-
-    def load_entries(self, namespace: Optional[str] = None) -> list[BaseVectorStoreDriver.Entry]:
-
-        filter_string = f"namespace:{namespace}" if namespace else None
-        results = self.mq.index(self.index).search("", limit=10000, filter_string=filter_string)
-
-        # get all _id's from search results
-        ids = [r["_id"] for r in results["hits"]]
-
-        # get documents corresponding to the ids
-        documents = self.mq.index(self.index).get_documents(document_ids=ids,expose_facets=True)
-
-        # for each document, if it's found, create an Entry object
-        entries = []
-        for doc in documents['results']:
-            if doc['_found']:
-                entries.append(
-                    BaseVectorStoreDriver.Entry(
-                        id=doc["_id"],
-                        vector=doc["_tensor_facets"][0]["_embedding"],
-                        meta={k: v for k, v in doc.items() if k not in ["_id", "_tensor_facets", "_found"]},
                         namespace=doc.get("namespace"),
                     )
                 )
 
         return entries
-    
 
     def query(
             self,
