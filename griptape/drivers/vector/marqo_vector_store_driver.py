@@ -19,9 +19,6 @@ class MarqoVectorStoreDriver(BaseVectorStoreDriver):
     def set_index(self, index):
         self.index = index
 
-    #insert namespace as a nontensor field not as a tensor field
-    #if namespace is not None we can filter
-
     def upsert_text(
         self,
         string: str,
@@ -43,7 +40,6 @@ class MarqoVectorStoreDriver(BaseVectorStoreDriver):
 
         return self.mq.index(self.index).add_documents([doc], non_tensor_fields=["meta", "namespace"])
 
-        
     def upsert_text_artifact(
             self,
             artifact: TextArtifact,
@@ -51,18 +47,18 @@ class MarqoVectorStoreDriver(BaseVectorStoreDriver):
             meta: Optional[dict] = None,
             **kwargs
     ) -> str:
-        if not meta:
-            meta = {}
 
-        meta["artifact"] = artifact.to_json()
+        artifact_json = artifact.to_json()
 
-        return self.upsert_text(
-            string=artifact.value,
-            vector_id=artifact.id,
-            namespace=namespace,
-            meta=meta,
-            **kwargs
-        )
+
+        doc = {
+            "_id": artifact.id, 
+            "Description": artifact.value,  # Description will be treated as tensor field
+            "artifact": str(artifact_json),
+            "namespace": namespace
+        }
+
+        return self.mq.index(self.index).add_documents([doc], non_tensor_fields=["meta", "namespace","artifact"])
 
 
     def load_entry(self, vector_id: str, namespace: Optional[str] = None) -> Optional[BaseVectorStoreDriver.Entry]:
@@ -194,6 +190,18 @@ class MarqoVectorStoreDriver(BaseVectorStoreDriver):
     def create_index(self, name: str, **kwargs) -> None:
         result = self.mq.create_index(name, settings_dict=kwargs)
         return result
+
+    def delete_index(self, name: str) -> None:
+        result = self.mq.delete_index(name)
+        return result
+    
+    def get_indexes(self):
+        # Still buggy, does not return proper dict. 
+        # Will not be able to check whether an index already exists in the marqo instance or not
+        # When this is implemented, also change set_index to automatically create a new index if 
+        # it does not yet exist, or just set self.index = index if it does.
+        indexes = [list(index) for index in self.mq.get_indexes()]
+        return indexes
 
     def upsert_vector(
             self,

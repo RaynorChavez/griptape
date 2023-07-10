@@ -200,8 +200,8 @@ class TestMarqoVectorStorageDriver:
 
         # Assert
         assert len(entries) == 1
-        mock_marqo.index().search.assert_called_once_with("", limit=10000)
-        mock_marqo.index().get_documents.assert_called_once_with(document_ids=["5aed93eb-3878-4f12-bc92-0fda01c7d23d"])
+        mock_marqo.index().search.assert_called_once_with("", limit=10000, filter_string=None)
+        mock_marqo.index().get_documents.assert_called_once_with(document_ids=["5aed93eb-3878-4f12-bc92-0fda01c7d23d"], expose_facets=True)
         assert entries[0].id == "5aed93eb-3878-4f12-bc92-0fda01c7d23d"
         assert entries[0].vector == [0.1, 0.2, 0.3]
         assert entries[0].meta["Title"] == "Test Title"

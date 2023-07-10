@@ -48,11 +48,12 @@ class TestMarqoVectorStorageDriver:
 
     def test_upsert_text_artifact(self, driver):
         driver.set_index("my-first-index")
+        namespace = "marqo-namespace"
         # Arrange
         text = TextArtifact(id="a44b04ff052e4109b3c6fda0f3f3e997", value="racoons")
         
         # Act
-        result = driver.upsert_text_artifact(text)
+        result = driver.upsert_text_artifact(text, namespace=namespace)
         
         # Assert: Check that the document was added successfully
         assert result['items'][0]['_id'] == text.id
@@ -60,6 +61,7 @@ class TestMarqoVectorStorageDriver:
     
     def test_upsert_text_artifacts(self, driver):
         driver.set_index("my-first-index")
+        namespace = "marqo-namespace"
 
         # Arrange
         texts = [
@@ -70,7 +72,7 @@ class TestMarqoVectorStorageDriver:
         
         # Act and Assert: Check that each document is added successfully
         for text in texts:
-            result = driver.upsert_text_artifact(text)
+            result = driver.upsert_text_artifact(text, namespace=namespace)
             assert result['items'][0]['_id'] == text.id
             assert result['items'][0]['result'] == "created" or "updated"
 
