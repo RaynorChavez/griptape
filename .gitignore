@@ -45,6 +45,7 @@ nodeLanguageServer/**
 nodeLanguageServer.*/**
 dist/**
 *.egg-info
+gvenv/**
 
 # translation files
 *.xlf

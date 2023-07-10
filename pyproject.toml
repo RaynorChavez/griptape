@@ -41,6 +41,7 @@ trafilatura = ">= 1.6"
 anthropic = "^0.2.10"
 sqlalchemy = "~=1.0"
 sqlalchemy-redshift = "*"
+marqo = ">=0.1.0"
 
 [tool.poetry.group.test.dependencies]
 pytest = "~=7.1"
