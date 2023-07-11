@@ -4,40 +4,50 @@ from griptape.drivers import MarqoVectorStoreDriver
 from marqo import Client
 
 class TestMarqoVectorStorageDriver:
-
+    
     @pytest.fixture(autouse=True)
     def marqo_client(self):
-        client = Client(api_key="foobar", url="http://localhost:8882")
-        return client
+        client = Client(url="http://localhost:8882")
+
+        # client.create_index("marqo-griptape-test-index")
+
+        yield client
+        
+        # try:
+        #     client.delete_index("marqo-griptape-test-index")
+        # except Exception:
+        #     pass
 
     @pytest.fixture
-    def driver(self, marqo_client):
+    def driver(self, marqo_client) -> MarqoVectorStoreDriver:
         return MarqoVectorStoreDriver(
-            api_key="foobar",
             url="http://localhost:8882",
-            index="test",
+            index="marqo-griptape-test-index",
             mq=marqo_client
         )
 
-    
-    def test_create_index(self, driver):
+    @pytest.mark.integrationtest
+    def test_create_index(self, driver: MarqoVectorStoreDriver):
         try:
-            result = driver.create_index("my-first-index")
-            assert result["acknowledged"] == True
-            assert result["index"] == "my-first-index"
-        except:
+            driver.mq.delete_index("marqo-griptape-test-index")
+        except Exception:
             pass
 
+        result = driver.create_index("marqo-griptape-test-index")
+        assert result["acknowledged"] == True
+        assert result["index"] == "marqo-griptape-test-index"
+
     @pytest.fixture
-    def insert_data(self, driver):
+    def insert_data(self, driver: MarqoVectorStoreDriver):
         # Add a document to the Marqo database
         document_id = "my-test-doc"
         text = "Test text"
         driver.upsert_text(text, vector_id=document_id)
         return document_id
 
-    def test_upsert_text(self, driver):
-        driver.set_index("my-first-index")
+    @pytest.mark.integrationtest
+    def test_upsert_text(self, driver: MarqoVectorStoreDriver):
+        driver.set_index("marqo-griptape-test-index")
         vector_id = "doc1"
         result = driver.upsert_text("test text document 1 cats are nice", vector_id=vector_id)
         assert result['items'][0]['_id'] == vector_id
@@ -46,8 +56,9 @@ class TestMarqoVectorStorageDriver:
         result = driver.upsert_text("test text document 1 dogs are nice", vector_id=vector_id)
         assert result['items'][0]['_id'] == vector_id
 
-    def test_upsert_text_artifact(self, driver):
-        driver.set_index("my-first-index")
+    @pytest.mark.integrationtest
+    def test_upsert_text_artifact(self, driver: MarqoVectorStoreDriver):
+        driver.set_index("marqo-griptape-test-index")
         namespace = "marqo-namespace"
         # Arrange
         text = TextArtifact(id="a44b04ff052e4109b3c6fda0f3f3e997", value="racoons")
@@ -58,9 +69,10 @@ class TestMarqoVectorStorageDriver:
         # Assert: Check that the document was added successfully
         assert result['items'][0]['_id'] == text.id
         assert result['items'][0]['result'] == "created" or "updated"
-    
-    def test_upsert_text_artifacts(self, driver):
-        driver.set_index("my-first-index")
+
+    @pytest.mark.integrationtest  
+    def test_upsert_text_artifacts(self, driver: MarqoVectorStoreDriver):
+        driver.set_index("marqo-griptape-test-index")
         namespace = "marqo-namespace"
 
         # Arrange
@@ -76,8 +88,9 @@ class TestMarqoVectorStorageDriver:
             assert result['items'][0]['_id'] == text.id
             assert result['items'][0]['result'] == "created" or "updated"
 
-    def test_search(self, driver):
-        driver.set_index("my-first-index")
+    @pytest.mark.integrationtest
+    def test_search(self, driver: MarqoVectorStoreDriver):
+        driver.set_index("marqo-griptape-test-index")
         query = "cats"
         results = driver.query(query)
         print("test search ", query, ": \n", results)
@@ -86,8 +99,9 @@ class TestMarqoVectorStorageDriver:
         assert "_id" in results[0].meta
         assert "Description" in results[0].meta
 
-    def test_load_entry(self, driver):
-        driver.set_index("my-first-index")
+    @pytest.mark.integrationtest
+    def test_load_entry(self, driver: MarqoVectorStoreDriver):
+        driver.set_index("marqo-griptape-test-index")
 
         vector_id = "doc3"
         result = driver.upsert_text("test text document 1 turtles are nice", vector_id=vector_id)
@@ -100,8 +114,9 @@ class TestMarqoVectorStorageDriver:
         assert "Description" in entry.meta
         assert isinstance(entry.vector, list) and len(entry.vector) > 0
 
-    def test_load_entries(self, driver):
-        driver.set_index("my-first-index")
+    @pytest.mark.integrationtest
+    def test_load_entries(self, driver: MarqoVectorStoreDriver):
+        driver.set_index("marqo-griptape-test-index")
         # Act
         entries = driver.load_entries()
         print(entries)
@@ -114,8 +129,9 @@ class TestMarqoVectorStorageDriver:
             assert entry.meta  # Each entry should have meta data
             assert "Description" in entry.meta  # Change 'text' to 'Description'
 
-    def test_namespace_filtering_query(self, driver):
-        driver.set_index("my-first-index")
+    @pytest.mark.integrationtest
+    def test_namespace_filtering_query(self, driver: MarqoVectorStoreDriver):
+        driver.set_index("marqo-griptape-test-index")
 
         # Arrange: Insert documents with different namespaces
         vector_id_1 = "doc1"
@@ -133,8 +149,9 @@ class TestMarqoVectorStorageDriver:
         assert all(res.meta["namespace"] == "ns1" for res in results_ns1)
         assert all(res.meta["namespace"] == "ns2" for res in results_ns2)
 
-    def test_namespace_filtering_load_entries(self, driver):
-        driver.set_index("my-first-index")
+    @pytest.mark.integrationtest
+    def test_namespace_filtering_load_entries(self, driver: MarqoVectorStoreDriver):
+        driver.set_index("marqo-griptape-test-index")
 
         # Arrange: Insert documents with different namespaces
         vector_id_1 = "doc1"

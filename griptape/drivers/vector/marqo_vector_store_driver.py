@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Union
 from griptape import utils
 from griptape.drivers import BaseVectorStoreDriver
 from griptape.artifacts import TextArtifact
@@ -8,8 +8,8 @@ from attr import define, field
 
 @define
 class MarqoVectorStoreDriver(BaseVectorStoreDriver):
-    api_key: str = field(kw_only=True)
     url: str = field(kw_only=True)
+    api_key: Union[str, None] = field(default=None, kw_only=True)
     mq: marqo.Client = field(kw_only=True)
     index: str = field(kw_only=True)
 
