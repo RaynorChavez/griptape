@@ -16,6 +16,7 @@ class MarqoVectorStoreDriver(BaseVectorStoreDriver):
     def __attrs_post_init__(self):
         """Initialize the Marqo client with the given API key and URL."""
         self.mq = marqo.Client(self.url, self.api_key)
+        self.set_index(self.index)
 
     def set_index(self, index):
         """Set the index for the Marqo client.
@@ -23,6 +24,11 @@ class MarqoVectorStoreDriver(BaseVectorStoreDriver):
         Args:
             index (str): The index to set for the Marqo client.
         """
+        indexes = self.get_indexes()
+
+        if index not in indexes:
+            self.create_index(index)
+
         self.index = index
 
     def upsert_text(
@@ -202,6 +208,14 @@ class MarqoVectorStoreDriver(BaseVectorStoreDriver):
 
         Args:
             name (str): The name of the index to delete.
+        
+        {
+            "results": [
+                {"index_name":"hww"},
+                {"index_name":"hww"},
+                {"index_name":"hww"}
+            ]
+        }
         """
 
         result = self.mq.delete_index(name)
@@ -214,11 +228,8 @@ class MarqoVectorStoreDriver(BaseVectorStoreDriver):
             list: The list of all indexes.
         """
 
-        # Still buggy, does not return proper dict. 
-        # Will not be able to check whether an index already exists in the marqo instance or not
-        # When this is implemented, also change set_index to automatically create a new index if 
-        # it does not yet exist, or just set self.index = index if it does.
-        indexes = [list(index) for index in self.mq.get_indexes()]
+        # Change this once API issue is fixed (entries in results are no longer objects but dicts)
+        indexes = [index.index_name for index in self.mq.get_indexes()["results"]]
         return indexes
 
     def upsert_vector(
