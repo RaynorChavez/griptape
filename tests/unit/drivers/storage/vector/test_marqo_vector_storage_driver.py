@@ -3,6 +3,7 @@ from griptape.artifacts import TextArtifact
 from griptape.drivers import MarqoVectorStoreDriver
 from tests.mocks.mock_embedding_driver import MockEmbeddingDriver
 from griptape.artifacts import TextArtifact
+from collections import namedtuple
 
 
 class TestMarqoVectorStorageDriver:
@@ -70,6 +71,15 @@ class TestMarqoVectorStorageDriver:
             "acknowledged":True, "shards_acknowledged":True, "index":"my-first-index"
         }
 
+        # Define a namedtuple type for the mock indexes
+        MockIndex = namedtuple("MockIndex", ["index_name"])
+
+        # Create a list of mock indexes
+        mock_indexes = [
+            MockIndex(index_name="my-first-index"),
+            MockIndex(index_name="test-index"),
+        ]
+        mock_get_indexes_response = {"results": mock_indexes}
 
         # Mock the marqo.Client
         mock_client = mocker.Mock()
@@ -81,6 +91,9 @@ class TestMarqoVectorStorageDriver:
         mock_index.add_documents.return_value = fake_add_document_response
         mock_index.search.return_value = fake_search_response
         mock_index.get_document.return_value = fake_get_document_response
+
+        # Mock the get_indexes method
+        mock_client.get_indexes.return_value = mock_get_indexes_response
 
         # Mock the create_index method
         mock_client.create_index.return_value = fake_create_index_response
@@ -98,6 +111,7 @@ class TestMarqoVectorStorageDriver:
         )
 
     def test_create_index(self, driver, mock_marqo):
+        mock_marqo.create_index.reset_mock()
         result = driver.create_index("my-first-index")
         mock_marqo.create_index.assert_called_once()
         assert result["acknowledged"] == True

@@ -208,14 +208,6 @@ class MarqoVectorStoreDriver(BaseVectorStoreDriver):
 
         Args:
             name (str): The name of the index to delete.
-        
-        {
-            "results": [
-                {"index_name":"hww"},
-                {"index_name":"hww"},
-                {"index_name":"hww"}
-            ]
-        }
         """
 
         result = self.mq.delete_index(name)
