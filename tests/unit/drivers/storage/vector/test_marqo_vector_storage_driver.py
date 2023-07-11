@@ -120,7 +120,7 @@ class TestMarqoVectorStorageDriver:
     def test_upsert_text(self, driver, mock_marqo):
         result = driver.upsert_text("test text", vector_id="5aed93eb-3878-4f12-bc92-0fda01c7d23d")
         mock_marqo.index().add_documents.assert_called()
-        assert result['items'][0]['_id'] == "5aed93eb-3878-4f12-bc92-0fda01c7d23d"
+        assert result == "5aed93eb-3878-4f12-bc92-0fda01c7d23d"
 
     def test_upsert_text_artifact(self, driver, mock_marqo):
         # Arrange
@@ -155,7 +155,7 @@ class TestMarqoVectorStorageDriver:
             "index_name": "my-first-index"
         }
         print(result, type(result))
-        assert result['items'][0]["_id"] == expected_return_value["items"][0]["_id"]
+        assert result == expected_return_value["items"][0]["_id"]
 
 
 

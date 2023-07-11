@@ -40,11 +40,11 @@ class TestMarqoVectorStorageDriver:
         driver.set_index("my-first-index")
         vector_id = "doc1"
         result = driver.upsert_text("test text document 1 cats are nice", vector_id=vector_id)
-        assert result['items'][0]['_id'] == vector_id
+        assert result == vector_id
 
         vector_id = "doc2"
         result = driver.upsert_text("test text document 1 dogs are nice", vector_id=vector_id)
-        assert result['items'][0]['_id'] == vector_id
+        assert result == vector_id
 
     def test_upsert_text_artifact(self, driver):
         driver.set_index("my-first-index")
@@ -56,8 +56,8 @@ class TestMarqoVectorStorageDriver:
         result = driver.upsert_text_artifact(text, namespace=namespace)
         
         # Assert: Check that the document was added successfully
-        assert result['items'][0]['_id'] == text.id
-        assert result['items'][0]['result'] == "created" or "updated"
+        assert result == text.id
+        #assert result['items'][0]['result'] == "created" or "updated"
     
     def test_upsert_text_artifacts(self, driver):
         driver.set_index("my-first-index")
@@ -73,8 +73,8 @@ class TestMarqoVectorStorageDriver:
         # Act and Assert: Check that each document is added successfully
         for text in texts:
             result = driver.upsert_text_artifact(text, namespace=namespace)
-            assert result['items'][0]['_id'] == text.id
-            assert result['items'][0]['result'] == "created" or "updated"
+            assert result == text.id
+            #assert result['items'][0]['result'] == "created" or "updated"
 
     def test_search(self, driver):
         driver.set_index("my-first-index")
@@ -91,7 +91,7 @@ class TestMarqoVectorStorageDriver:
 
         vector_id = "doc3"
         result = driver.upsert_text("test text document 1 turtles are nice", vector_id=vector_id)
-        assert result['items'][0]['_id'] == vector_id
+        assert result == vector_id
 
         document_id = "doc3"
         entry = driver.load_entry(document_id)
